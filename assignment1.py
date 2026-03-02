@@ -1,16 +1,11 @@
-from collections import deque
-
-def get_priority(robot_dict):
-    return robot_dict["priority"]
-
-def get_id(robot_dict):
-    return robot_dict["id"]
-
 def main():
     lines = []
     with open("input.txt", "r") as f:
         for line in f:
-            clean_line = line.strip()
+            clean_line = ""
+            for char in line:
+                if char != "\n" and char != "\r":
+                    clean_line += char
             if clean_line != "":
                 lines.append(clean_line)
 
@@ -74,9 +69,14 @@ def main():
         }
         robots.append(new_robot)
 
-    robots.sort(key=get_priority, reverse=True)
+    for i in range(len(robots)):
+        for j in range(0, len(robots) - i - 1):
+            if robots[j]["priority"] < robots[j + 1]["priority"]:
+                temp = robots[j]
+                robots[j] = robots[j + 1]
+                robots[j + 1] = temp
 
-    reservations = set()
+    reservations = []
     results = {}
 
     for robot in robots:
@@ -101,24 +101,26 @@ def main():
                 "time": 0,
                 "energy": 0
             }
-            reservations.add((start_x, start_y, 0))
+            reservations.append((start_x, start_y, 0))
             continue
 
         start_state = (start_x, start_y, initial_cp_index, 0)
-        visited = set()
-        visited.add(start_state)
+        visited = []
+        visited.append(start_state)
         
         parent = {}
         parent[start_state] = None
         
-        queue = deque()
+        queue = []
         queue.append(start_state)
 
         found = False
         goal_state = None
 
         while len(queue) > 0:
-            current_state = queue.popleft()
+            current_state = queue[0]
+            queue = queue[1:]
+            
             current_x = current_state[0]
             current_y = current_state[1]
             cp_idx = current_state[2]
@@ -161,7 +163,13 @@ def main():
                 if get_cell(next_x, next_y) == "X":
                     continue
                     
-                if (next_x, next_y, next_time) in reservations:
+                is_reserved = False
+                for res in reservations:
+                    if res[0] == next_x and res[1] == next_y and res[2] == next_time:
+                        is_reserved = True
+                        break
+                        
+                if is_reserved == True:
                     continue
 
                 new_cp_idx = cp_idx
@@ -170,8 +178,15 @@ def main():
                         new_cp_idx += 1
 
                 new_state = (next_x, next_y, new_cp_idx, next_time)
-                if new_state not in visited:
-                    visited.add(new_state)
+                
+                is_visited = False
+                for v in visited:
+                    if v[0] == new_state[0] and v[1] == new_state[1] and v[2] == new_state[2] and v[3] == new_state[3]:
+                        is_visited = True
+                        break
+                        
+                if is_visited == False:
+                    visited.append(new_state)
                     parent[new_state] = current_state
                     queue.append(new_state)
 
@@ -182,14 +197,18 @@ def main():
                 path.append((current_backtrack[0], current_backtrack[1]))
                 current_backtrack = parent[current_backtrack]
                 
-            path.reverse()
+            reversed_path = []
+            for i in range(len(path) - 1, -1, -1):
+                reversed_path.append(path[i])
+            path = reversed_path
+            
             total_time = len(path) - 1
             
             step = 0
             for point in path:
                 px = point[0]
                 py = point[1]
-                reservations.add((px, py, step))
+                reservations.append((px, py, step))
                 step += 1
                 
             results[rid] = {
@@ -200,7 +219,12 @@ def main():
         else:
             results[rid] = None
 
-    robots.sort(key=get_id)
+    for i in range(len(robots)):
+        for j in range(0, len(robots) - i - 1):
+            if robots[j]["id"] > robots[j + 1]["id"]:
+                temp = robots[j]
+                robots[j] = robots[j + 1]
+                robots[j + 1] = temp
 
     with open("output.txt", "w") as f:
         first = True
@@ -217,12 +241,13 @@ def main():
                 t = results[rid]["time"]
                 e = results[rid]["energy"]
                 
-                path_parts = []
-                for point in path:
-                    px = point[0]
-                    py = point[1]
-                    path_parts.append("(" + str(px) + "," + str(py) + ")")
-                path_str = "->".join(path_parts)
+                path_str = ""
+                for i in range(len(path)):
+                    px = path[i][0]
+                    py = path[i][1]
+                    path_str += "(" + str(px) + "," + str(py) + ")"
+                    if i < len(path) - 1:
+                        path_str += "->"
                 
                 f.write("Robot " + str(rid) + ":\n")
                 f.write("Path: " + path_str + "\n")
